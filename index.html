@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>Keyboard Assets Generator</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">HÜGELTON TOOL</div>
+        <h1>Keyboard Assets Generator</h1>
+      </div>
+      <div class="top-actions">
+        <button id="resetView" class="ghost">Reset view</button>
+        <button id="savePreset" class="ghost">Save preset</button>
+        <label class="ghost file-button">Load preset<input id="loadPreset" type="file" accept="application/json" /></label>
+      </div>
+    </header>
+
+    <section class="workspace">
+      <aside class="panel controls" id="controls">
+        <details open>
+          <summary>Range</summary>
+          <div class="grid two">
+            <label>From<input id="rangeFrom" value="C2" /></label>
+            <label>To<input id="rangeTo" value="C5" /></label>
+          </div>
+          <div class="preset-row">
+            <button data-low="B1">Low B</button>
+            <button data-low="E1">Low E</button>
+            <button data-high="C5">High C</button>
+            <button data-high="F5">High F</button>
+          </div>
+          <label class="check"><input id="showLabels" type="checkbox" /> Show note labels</label>
+        </details>
+
+        <details open>
+          <summary>Key geometry</summary>
+          <div class="grid two">
+            <label>White width<input id="whiteWidth" type="number" min="8" max="200" step="1" value="48" /></label>
+            <label>White length<input id="whiteLength" type="number" min="20" max="600" step="1" value="188" /></label>
+            <label>White thickness<input id="whiteThickness" type="number" min="1" max="50" step="1" value="10" /></label>
+            <label>Front radius<input id="frontRadius" type="number" min="0" max="12" step="0.5" value="3" /></label>
+            <label>Black width<input id="blackWidth" type="number" min="4" max="120" step="1" value="29" /></label>
+            <label>Black length<input id="blackLength" type="number" min="10" max="400" step="1" value="105" /></label>
+            <label>Black height<input id="blackHeight" type="number" min="2" max="80" step="1" value="15" /></label>
+            <label>Key gap<input id="keyGap" type="number" min="0" max="5" step="0.1" value="1" /></label>
+          </div>
+          <label>Pressed angle <span id="pressAngleOut">6°</span><input id="pressAngle" type="range" min="0" max="18" step="0.25" value="6" /></label>
+        </details>
+
+        <details open>
+          <summary>Materials</summary>
+          <div class="grid two">
+            <label>White key<input id="whiteColor" type="color" value="#eeeeee" /></label>
+            <label>Black key<input id="blackColor" type="color" value="#181818" /></label>
+            <label>White roughness<input id="whiteRoughness" type="number" min="0" max="1" step="0.05" value="0.72" /></label>
+            <label>Black roughness<input id="blackRoughness" type="number" min="0" max="1" step="0.05" value="0.5" /></label>
+          </div>
+        </details>
+
+        <details>
+          <summary>Camera</summary>
+          <label>Projection<select id="projection"><option value="orthographic">Orthographic</option><option value="perspective">Perspective</option></select></label>
+          <div class="grid three">
+            <label>X<input id="cameraX" type="number" step="10" value="0" /></label>
+            <label>Y<input id="cameraY" type="number" step="10" value="-260" /></label>
+            <label>Z<input id="cameraZ" type="number" step="10" value="430" /></label>
+            <label>Rot X<input id="cameraRotX" type="number" step="1" value="-20" /></label>
+            <label>Rot Y<input id="cameraRotY" type="number" step="1" value="0" /></label>
+            <label>Rot Z<input id="cameraRotZ" type="number" step="1" value="0" /></label>
+          </div>
+          <div class="grid two">
+            <label>Zoom<input id="cameraZoom" type="number" min="0.1" max="20" step="0.05" value="1" /></label>
+            <label>FOV<input id="cameraFov" type="number" min="10" max="100" step="1" value="35" /></label>
+          </div>
+          <button id="fitCamera" class="wide">Fit keyboard to frame</button>
+        </details>
+
+        <details>
+          <summary>Lighting</summary>
+          <div class="grid two">
+            <label>Ambient<input id="ambientIntensity" type="number" min="0" max="5" step="0.05" value="1.25" /></label>
+            <label>Main<input id="mainIntensity" type="number" min="0" max="10" step="0.05" value="3" /></label>
+          </div>
+          <div class="grid three">
+            <label>Light X<input id="lightX" type="number" step="10" value="-250" /></label>
+            <label>Light Y<input id="lightY" type="number" step="10" value="-250" /></label>
+            <label>Light Z<input id="lightZ" type="number" step="10" value="500" /></label>
+          </div>
+          <label class="check"><input id="shadows" type="checkbox" checked /> Shadows</label>
+        </details>
+
+        <details open>
+          <summary>Output</summary>
+          <div class="grid two">
+            <label>Width px<input id="outputWidth" type="number" min="32" max="8192" step="1" value="814" /></label>
+            <label>Height px<input id="outputHeight" type="number" min="32" max="8192" step="1" value="212" /></label>
+            <label>Scale<select id="outputScale"><option value="1">1×</option><option value="2" selected>2×</option><option value="4">4×</option></select></label>
+            <label>Background<input id="backgroundColor" type="color" value="#d9d9d9" /></label>
+          </div>
+          <label class="check"><input id="transparentBg" type="checkbox" checked /> Transparent background</label>
+          <label class="check"><input id="cropIndividual" type="checkbox" /> Crop individual assets to bounds</label>
+        </details>
+      </aside>
+
+      <section class="preview-column">
+        <div class="panel preview-panel">
+          <div class="preview-toolbar">
+            <div>
+              <strong>Preview</strong>
+              <span id="rangeInfo">C2–C5</span>
+            </div>
+            <div class="preview-tools">
+              <label>Pressed preview<select id="pressedNote"><option value="">None</option></select></label>
+            </div>
+          </div>
+          <div id="viewport" class="viewport"></div>
+          <div class="statusbar">
+            <span id="keyCount">0 keys</span>
+            <span id="renderSize">814 × 212</span>
+          </div>
+        </div>
+
+        <div class="panel export-panel">
+          <div>
+            <strong>Export</strong>
+            <p>Same camera, lighting and material settings are used for every generated asset.</p>
+          </div>
+          <div class="export-actions">
+            <button id="exportKeyboard" class="primary">Keyboard PNG</button>
+            <button id="exportPressed" class="primary">Keyboard + pressed PNG</button>
+            <button id="exportKeys">Individual keys ZIP</button>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
