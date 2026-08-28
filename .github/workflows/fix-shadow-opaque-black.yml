@@ -2,17 +2,15 @@ name: Fix shadows and black material
 on:
   push:
     paths:
-      - '.github/workflows/fix-shadow-opaque-black.yml'
+      - .github/workflows/fix-shadow-opaque-black.yml
 permissions:
   contents: write
 jobs:
   patch:
-    if: "${{ github.actor != 'github-actions[bot]' }}"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Patch renderer
-        shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -27,18 +25,10 @@ jobs:
           repl="layout={width:Math.max(size.x,1),length:Math.max(size.y,1),centerX:center.x,centerY:center.y,centerZ:center.z,box};updateShadowCatcher();updatePressedSelect();"
           if anchor not in s: raise SystemExit('layout anchor not found')
           s=s.replace(anchor,repl)
-          insert="""
-function updateShadowCatcher(){
-  if(shadowCatcher){scene.remove(shadowCatcher);shadowCatcher.geometry.dispose();shadowCatcher.material.dispose();shadowCatcher=null}
-  const pad=Math.max(30,n('whiteWidth')*.8),geo=new THREE.PlaneGeometry(layout.width+pad*2,layout.length+pad*2),mat=new THREE.ShadowMaterial({color:0x000000,opacity:.20,transparent:true,depthWrite:false});
-  shadowCatcher=new THREE.Mesh(geo,mat);shadowCatcher.position.set(layout.centerX,layout.centerY,-n('whiteThickness')-1.4);shadowCatcher.receiveShadow=true;shadowCatcher.renderOrder=-1;scene.add(shadowCatcher);
-  const span=Math.max(layout.width,layout.length)*.75+80;
-  mainLight.shadow.camera.left=-span;mainLight.shadow.camera.right=span;mainLight.shadow.camera.top=span;mainLight.shadow.camera.bottom=-span;mainLight.shadow.camera.near=.1;mainLight.shadow.camera.far=2500;mainLight.shadow.camera.updateProjectionMatrix();
-}
-"""
           marker="function updatePressedSelect(){"
+          insert="function updateShadowCatcher(){if(shadowCatcher){scene.remove(shadowCatcher);shadowCatcher.geometry.dispose();shadowCatcher.material.dispose();shadowCatcher=null}const pad=Math.max(30,n('whiteWidth')*.8),geo=new THREE.PlaneGeometry(layout.width+pad*2,layout.length+pad*2),mat=new THREE.ShadowMaterial({color:0x000000,opacity:.20,transparent:true,depthWrite:false});shadowCatcher=new THREE.Mesh(geo,mat);shadowCatcher.position.set(layout.centerX,layout.centerY,-n('whiteThickness')-1.4);shadowCatcher.receiveShadow=true;shadowCatcher.renderOrder=-1;scene.add(shadowCatcher);const span=Math.max(layout.width,layout.length)*.75+80;mainLight.shadow.camera.left=-span;mainLight.shadow.camera.right=span;mainLight.shadow.camera.top=span;mainLight.shadow.camera.bottom=-span;mainLight.shadow.camera.near=.1;mainLight.shadow.camera.far=2500;mainLight.shadow.camera.updateProjectionMatrix()}\n"
           if marker not in s: raise SystemExit('pressed marker not found')
-          s=s.replace(marker,insert+"\n"+marker)
+          s=s.replace(marker,insert+marker)
           s=s.replace("r.mesh.material.envMapIntensity=quality==='asset'?0:quality==='product'?1.45:1.05;", "r.mesh.material.envMapIntensity=quality==='asset'?0:quality==='product'?1.15:.82;")
           s=s.replace("mainLight.shadow.radius=quality==='product'?4:2;", "mainLight.shadow.radius=quality==='product'?3:2;if(shadowCatcher){shadowCatcher.visible=b('shadows');shadowCatcher.material.opacity=quality==='product'?.24:quality==='studio'?.20:.14;}")
           p.write_text(s)
