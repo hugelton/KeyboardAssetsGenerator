@@ -10,6 +10,7 @@ const CONFIG_IDS = [
   'whiteColor','blackColor','whiteRoughness','blackRoughness','projection','cameraX','cameraY','cameraZ','cameraRotX','cameraRotY','cameraRotZ','cameraZoom','cameraFov',
   'ambientIntensity','mainIntensity','lightX','lightY','lightZ','shadows','outputWidth','outputHeight','outputScale','backgroundColor','transparentBg','cropIndividual'
 ];
+const GEOMETRY_IDS = new Set(['rangeFrom','rangeTo','showLabels','whiteWidth','whiteLength','whiteThickness','frontRadius','blackWidth','blackLength','blackHeight','keyGap','whiteColor','blackColor','whiteRoughness','blackRoughness']);
 
 const viewport = $('viewport');
 const scene = new THREE.Scene();
@@ -20,6 +21,8 @@ renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
+renderer.setClearColor(0x000000,0);
+renderer.domElement.style.background = 'transparent';
 viewport.appendChild(renderer.domElement);
 
 const ambient = new THREE.AmbientLight(0xffffff, 1.25);
@@ -34,7 +37,7 @@ scene.add(mainLight);
 const orthoCamera = new THREE.OrthographicCamera(-100,100,100,-100,0.1,4000);
 const perspectiveCamera = new THREE.PerspectiveCamera(35,1,0.1,4000);
 let camera = perspectiveCamera;
-let keyboardGroup = new THREE.Group();
+const keyboardGroup = new THREE.Group();
 scene.add(keyboardGroup);
 let keyRecords = [];
 let layout = {width:1,length:1,centerX:0,centerY:0,box:null};
@@ -101,39 +104,42 @@ function createWhiteKey(midi,x,visibleSet){
   return {midi,name:noteName(midi),kind:'white',pivot,mesh,x,width:w};
 }
 
-// Real piano/synth black-key profile: a long, nearly flat top with a short
-// rounded/sloping nose only at the PLAYER side. The old geometry had this
-// transition at the rear, which made the key read backwards.
+// World orientation is explicit here: rear of the keyboard is Y=0 and the
+// player/front side is Y=-len. The sloped/rounded nose therefore exists only
+// at Y=-len. This avoids the axis-remapping bug in the previous geometry.
 function blackKeyGeometry(w,len,h,gap){
   const width=Math.max(2,w-Math.min(gap,w/6));
-  const nose=Math.min(14,Math.max(6,len*.18));
-  const noseStart=-len+nose;
-  const side=new THREE.Shape();
-  side.moveTo(0,0);
-  side.lineTo(0,h);
-  side.lineTo(noseStart,h);
-  side.quadraticCurveTo(-len+nose*.32,h*.92,-len,h*.18);
-  side.lineTo(-len,0);
-  side.closePath();
-
-  const bevel=Math.min(.9,width*.07,h*.08);
-  const geo=new THREE.ExtrudeGeometry(side,{
-    depth:width,
-    steps:1,
-    bevelEnabled:true,
-    bevelSegments:3,
-    bevelSize:bevel,
-    bevelThickness:bevel
-  });
-
-  // ExtrudeGeometry axes: side.x=length, side.y=height, depth=z.
-  // Remap to keyboard axes: X=key width, Y=key length, Z=height.
-  const pos=geo.attributes.position;
-  for(let i=0;i<pos.count;i++){
-    const u=pos.getX(i),v=pos.getY(i),d=pos.getZ(i);
-    pos.setXYZ(i,d-width/2,u,v);
+  const half=width/2;
+  const rearY=0;
+  const frontY=-len;
+  const nose=Math.min(14,Math.max(7,len*.15));
+  const y1=frontY+nose;
+  const y2=frontY+nose*.42;
+  const zFront=Math.max(h*.18,1.5);
+  const sections=[
+    {y:rearY,z:h},
+    {y:y1,z:h},
+    {y:y2,z:h*.88},
+    {y:frontY,z:zFront}
+  ];
+  const verts=[];
+  for(const s of sections){
+    verts.push(-half,s.y,0, half,s.y,0, -half,s.y,s.z, half,s.y,s.z);
   }
-  pos.needsUpdate=true;
+  const idx=[];
+  for(let i=0;i<sections.length-1;i++){
+    const a=i*4,b=(i+1)*4;
+    idx.push(a,b,b+1, a,b+1,a+1);            // bottom
+    idx.push(a+2,a+3,b+3, a+2,b+3,b+2);      // top/profile
+    idx.push(a,a+2,b+2, a,b+2,b);            // left
+    idx.push(a+1,b+1,b+3, a+1,b+3,a+3);      // right
+  }
+  idx.push(0,1,3, 0,3,2);                    // rear face
+  const f=(sections.length-1)*4;
+  idx.push(f,f+2,f+3, f,f+3,f+1);            // front face
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));
+  geo.setIndex(idx);
   geo.computeVertexNormals();
   return geo;
 }
@@ -213,12 +219,16 @@ function updateCamera(sizeOverride=null){
   camera.updateProjectionMatrix();
 }
 function updateSceneSettings(){
-  ambient.intensity=n('ambientIntensity');mainLight.intensity=n('mainIntensity');mainLight.position.set(n('lightX'),n('lightY'),n('lightZ'));
+  ambient.intensity=n('ambientIntensity');
+  mainLight.intensity=n('mainIntensity');
+  mainLight.position.set(n('lightX'),n('lightY'),n('lightZ'));
   renderer.shadowMap.enabled=b('shadows');mainLight.castShadow=b('shadows');
   const transparent=b('transparentBg');
   scene.background=transparent?null:new THREE.Color($('backgroundColor').value);
+  renderer.setClearColor(transparent?0x000000:new THREE.Color($('backgroundColor').value),transparent?0:1);
   renderer.setClearAlpha(transparent?0:1);
-  viewport.classList.toggle('checkerboard',transparent);
+  renderer.domElement.style.background='transparent';
+  viewport.classList.toggle('transparent-preview',transparent);
   updateCamera();render();
 }
 function render(){renderer.render(scene,camera);}
@@ -233,11 +243,11 @@ function fitCamera(){
   }else{
     $('cameraZ').value=Math.round(Math.max(260,len*2.3));$('cameraZoom').value=1;
   }
-  syncAllSliders();updateCamera();
+  syncAllControls();updateCamera();
   if(camera===orthoCamera&&layout.box){
     const corners=[];for(const x of [layout.box.min.x,layout.box.max.x])for(const y of [layout.box.min.y,layout.box.max.y])for(const z of [layout.box.min.z,layout.box.max.z])corners.push(new THREE.Vector3(x,y,z));
     let max=0;corners.forEach(v=>{const p=v.clone().project(camera);max=Math.max(max,Math.abs(p.x),Math.abs(p.y));});
-    if(max>0){$('cameraZoom').value=(.9/max).toFixed(3);syncAllSliders();updateCamera();}
+    if(max>0){$('cameraZoom').value=(.9/max).toFixed(3);syncAllControls();updateCamera();}
   }
   render();
 }
@@ -266,9 +276,12 @@ async function exportKeyboard(includePressed=false){
   const dim=outputDimensions(),oldPressed=$('pressedNote').value;
   try{
     setRenderTargetSize(dim.width,dim.height);
-    if(!includePressed){keyRecords.forEach(r=>r.pivot.rotation.x=0);downloadDataURL(canvasPNG(),`keyboard_${safeName($('rangeFrom').value)}-${safeName($('rangeTo').value)}@${dim.scale}x.png`);}
-    else{
-      const zip=new window.JSZip();keyRecords.forEach(r=>r.pivot.rotation.x=0);zip.file('keyboard_up.png',dataURLBase64(canvasPNG()),{base64:true});
+    if(!includePressed){
+      keyRecords.forEach(r=>r.pivot.rotation.x=0);
+      downloadDataURL(canvasPNG(),`keyboard_${safeName($('rangeFrom').value)}-${safeName($('rangeTo').value)}@${dim.scale}x.png`);
+    }else{
+      const zip=new window.JSZip();
+      keyRecords.forEach(r=>r.pivot.rotation.x=0);zip.file('keyboard_up.png',dataURLBase64(canvasPNG()),{base64:true});
       for(const rec of keyRecords){keyRecords.forEach(r=>r.pivot.rotation.x=0);rec.pivot.rotation.x=deg(n('pressAngle'));zip.file(`pressed/${safeName(rec.name)}.png`,dataURLBase64(canvasPNG()),{base64:true});}
       const blob=await zip.generateAsync({type:'blob'});downloadDataURL(URL.createObjectURL(blob),`keyboard_pressed_${safeName($('rangeFrom').value)}-${safeName($('rangeTo').value)}.zip`);
     }
@@ -289,34 +302,49 @@ async function exportIndividual(){
   }finally{keyRecords.forEach((r,i)=>{r.pivot.visible=oldVisibility[i];r.pivot.rotation.x=0;});$('pressedNote').value=oldPressed;applyPressedPreview();restorePreview();}
 }
 
-function configObject(){const o={version:2};for(const id of CONFIG_IDS){const el=$(id);o[id]=el.type==='checkbox'?el.checked:el.value;}return o;}
-function applyConfig(o){for(const id of CONFIG_IDS){if(!(id in o))continue;const el=$(id);if(el.type==='checkbox')el.checked=!!o[id];else el.value=o[id];}syncAllSliders();queueRebuild();}
+function configObject(){const o={version:3};for(const id of CONFIG_IDS){const el=$(id);o[id]=el.type==='checkbox'?el.checked:el.value;}return o;}
+function applyConfig(o){for(const id of CONFIG_IDS){if(!(id in o))continue;const el=$(id);if(el.type==='checkbox')el.checked=!!o[id];else el.value=o[id];}syncAllControls();queueRebuild();}
 function savePreset(){const blob=new Blob([JSON.stringify(configObject(),null,2)],{type:'application/json'});downloadDataURL(URL.createObjectURL(blob),'keyboard-assets-preset.json');}
 
-function syncAllSliders(){
-  document.querySelectorAll('input[type=range][data-sync]').forEach(sl=>{const target=$(sl.dataset.sync);if(target)sl.value=Math.min(Number(sl.max),Math.max(Number(sl.min),Number(target.value)));});
+function handleConfigChange(id){
+  if(GEOMETRY_IDS.has(id)) queueRebuild();
+  else if(id==='pressAngle') applyPressedPreview();
+  else updateSceneSettings();
+}
+
+function syncAllControls(){
+  document.querySelectorAll('input[type=range][data-sync]').forEach(sl=>{const target=$(sl.dataset.sync);if(target)sl.value=target.value;});
   document.querySelectorAll('input[type=number][data-range-sync]').forEach(num=>{const range=$(num.dataset.rangeSync);if(range)num.value=range.value;});
 }
-function wireSliderPairs(){
+
+function wireControls(){
   document.querySelectorAll('input[type=range][data-sync]').forEach(sl=>{
-    const target=$(sl.dataset.sync);if(!target)return;
-    sl.addEventListener('input',()=>{target.value=sl.value;target.dispatchEvent(new Event('input',{bubbles:true}));});
-    target.addEventListener('input',()=>{const v=Number(target.value);if(Number.isFinite(v))sl.value=Math.min(Number(sl.max),Math.max(Number(sl.min),v));});
+    const id=sl.dataset.sync,target=$(id);if(!target)return;
+    sl.addEventListener('input',()=>{target.value=sl.value;handleConfigChange(id);});
+    target.addEventListener('input',()=>{sl.value=target.value;handleConfigChange(id);});
+    target.addEventListener('change',()=>{sl.value=target.value;handleConfigChange(id);});
   });
+
   document.querySelectorAll('input[type=number][data-range-sync]').forEach(num=>{
-    const range=$(num.dataset.rangeSync);if(!range)return;
-    num.addEventListener('input',()=>{range.value=num.value;range.dispatchEvent(new Event('input',{bubbles:true}));});
-    range.addEventListener('input',()=>{num.value=range.value;});
+    const id=num.dataset.rangeSync,range=$(id);if(!range)return;
+    num.addEventListener('input',()=>{range.value=num.value;handleConfigChange(id);});
+    num.addEventListener('change',()=>{range.value=num.value;handleConfigChange(id);});
+    range.addEventListener('input',()=>{num.value=range.value;handleConfigChange(id);});
+  });
+
+  const pairedIds=new Set([
+    ...Array.from(document.querySelectorAll('input[type=range][data-sync]')).map(el=>el.dataset.sync),
+    ...Array.from(document.querySelectorAll('input[type=number][data-range-sync]')).map(el=>el.dataset.rangeSync)
+  ]);
+  CONFIG_IDS.forEach(id=>{
+    if(pairedIds.has(id)) return;
+    const el=$(id);if(!el)return;
+    el.addEventListener('input',()=>handleConfigChange(id));
+    el.addEventListener('change',()=>handleConfigChange(id));
   });
 }
-wireSliderPairs();syncAllSliders();
 
-const geometryIds=new Set(['rangeFrom','rangeTo','showLabels','whiteWidth','whiteLength','whiteThickness','frontRadius','blackWidth','blackLength','blackHeight','keyGap','whiteColor','blackColor','whiteRoughness','blackRoughness']);
-CONFIG_IDS.forEach(id=>{
-  const el=$(id);
-  el.addEventListener('input',()=>geometryIds.has(id)?queueRebuild():(id==='pressAngle'?applyPressedPreview():updateSceneSettings()));
-  el.addEventListener('change',()=>geometryIds.has(id)?queueRebuild():(id==='pressAngle'?applyPressedPreview():updateSceneSettings()));
-});
+wireControls();syncAllControls();
 $('pressedNote').addEventListener('change',applyPressedPreview);
 $('fitCamera').addEventListener('click',fitCamera);
 $('resetView').addEventListener('click',()=>{applyConfig({projection:'perspective',cameraX:'0',cameraY:'-260',cameraZ:'430',cameraRotX:'-20',cameraRotY:'0',cameraRotZ:'0',cameraZoom:'1',cameraFov:'35',ambientIntensity:'1.25',mainIntensity:'3',lightX:'-250',lightY:'-250',lightZ:'500'});setTimeout(fitCamera,0);});
@@ -325,8 +353,8 @@ $('loadPreset').addEventListener('change',async e=>{const f=e.target.files?.[0];
 $('exportKeyboard').addEventListener('click',()=>exportKeyboard(false));
 $('exportPressed').addEventListener('click',()=>exportKeyboard(true));
 $('exportKeys').addEventListener('click',exportIndividual);
-document.querySelectorAll('[data-low]').forEach(btn=>btn.addEventListener('click',()=>{$('rangeFrom').value=btn.dataset.low;queueRebuild();}));
-document.querySelectorAll('[data-high]').forEach(btn=>btn.addEventListener('click',()=>{$('rangeTo').value=btn.dataset.high;queueRebuild();}));
+document.querySelectorAll('[data-low]').forEach(btn=>btn.addEventListener('click',()=>{$('rangeFrom').value=btn.dataset.low;handleConfigChange('rangeFrom');}));
+document.querySelectorAll('[data-high]').forEach(btn=>btn.addEventListener('click',()=>{$('rangeTo').value=btn.dataset.high;handleConfigChange('rangeTo');}));
 
 new ResizeObserver(()=>resizePreview()).observe(viewport);
 renderer.domElement.addEventListener('pointerdown',ev=>{
@@ -335,4 +363,4 @@ renderer.domElement.addEventListener('pointerdown',ev=>{
   if(hits.length){$('pressedNote').value=String(hits[0].object.userData.midi);applyPressedPreview();}
 });
 
-buildKeyboard();requestAnimationFrame(()=>{fitCamera();resizePreview();});
+buildKeyboard();requestAnimationFrame(()=>{updateSceneSettings();fitCamera();resizePreview();});
