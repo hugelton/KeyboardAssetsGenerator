@@ -14,31 +14,31 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.x'
-      - name: Patch camera centering and fit
+      - name: Sharpen black key profile and normals
         run: |
           python - <<'PY'
           from pathlib import Path
           p=Path('app.js')
           s=p.read_text()
-          old="function updateCamera(sizeOverride=null){camera=activeCamera();const width=sizeOverride?.width||previewSize.width||1,height=sizeOverride?.height||previewSize.height||1,aspect=width/height;const target=new THREE.Vector3(layout.centerX,layout.centerY,layout.centerZ);camera.position.set(layout.centerX+n('cameraX'),layout.centerY+n('cameraY'),layout.centerZ+n('cameraZ'));if(camera===perspectiveCamera){camera.aspect=aspect;camera.fov=n('cameraFov')}else{const halfH=Math.max(layout.length*.72,80);camera.left=-halfH*aspect;camera.right=halfH*aspect;camera.top=halfH;camera.bottom=-halfH;camera.zoom=n('cameraZoom')}camera.lookAt(target);camera.rotateX(deg(n('cameraRotX')));camera.rotateY(deg(n('cameraRotY')));camera.rotateZ(deg(n('cameraRotZ')));camera.updateProjectionMatrix()}"
-          new="function updateCamera(sizeOverride=null){camera=activeCamera();const width=sizeOverride?.width||previewSize.width||1,height=sizeOverride?.height||previewSize.height||1,aspect=width/height;const target=new THREE.Vector3(layout.centerX,layout.centerY,layout.centerZ);const offset=new THREE.Vector3(n('cameraX'),n('cameraY'),n('cameraZ'));offset.applyEuler(new THREE.Euler(deg(n('cameraRotX')),deg(n('cameraRotY')),deg(n('cameraRotZ')),'XYZ'));camera.position.copy(target).add(offset);if(camera===perspectiveCamera){camera.aspect=aspect;camera.fov=n('cameraFov')}else{const halfH=Math.max(layout.length*.72,80);camera.left=-halfH*aspect;camera.right=halfH*aspect;camera.top=halfH;camera.bottom=-halfH;camera.zoom=n('cameraZoom')}camera.lookAt(target);camera.updateProjectionMatrix()}"
-          assert old in s, 'updateCamera pattern not found'
+          old="function blackKeyGeometry(w,len,h,gap){const width=Math.max(2,w-Math.min(gap,w/6)),half=width/2,rearY=0,frontY=-len,nose=Math.min(14,Math.max(7,len*.15)),y1=frontY+nose,y2=frontY+nose*.42,zFront=Math.max(h*.18,1.5);const sections=[{y:rearY,z:h},{y:y1,z:h},{y:y2,z:h*.88},{y:frontY,z:zFront}],verts=[];for(const s of sections)verts.push(-half,s.y,0,half,s.y,0,-half,s.y,s.z,half,s.y,s.z);const idx=[];for(let i=0;i<sections.length-1;i++){const a=i*4,c=(i+1)*4;idx.push(a,c,c+1,a,c+1,a+1,a+2,a+3,c+3,a+2,c+3,c+2,a,a+2,c+2,a,c+2,c,a+1,c+1,c+3,a+1,c+3,a+3)}idx.push(0,1,3,0,3,2);const f=(sections.length-1)*4;idx.push(f,f+2,f+3,f,f+3,f+1);const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));geo.setIndex(idx);geo.computeVertexNormals();return geo}"
+          new="function blackKeyGeometry(w,len,h,gap){const width=Math.max(2,w-Math.min(gap,w/6)),half=width/2,rearY=0,frontY=-len,nose=Math.min(16,Math.max(8,len*.16)),noseY=frontY+nose,zFront=Math.max(h*.16,1.5);const sections=[{y:rearY,z:h},{y:noseY,z:h},{y:frontY,z:zFront}],verts=[];for(const s of sections)verts.push(-half,s.y,0,half,s.y,0,-half,s.y,s.z,half,s.y,s.z);const idx=[];for(let i=0;i<sections.length-1;i++){const a=i*4,c=(i+1)*4;idx.push(a,c,c+1,a,c+1,a+1,a+2,a+3,c+3,a+2,c+3,c+2,a,a+2,c+2,a,c+2,c,a+1,c+1,c+3,a+1,c+3,a+3)}idx.push(0,1,3,0,3,2);const f=(sections.length-1)*4;idx.push(f,f+2,f+3,f,f+3,f+1);let geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(verts,3));geo.setIndex(idx);geo=geo.toNonIndexed();geo.computeVertexNormals();return geo}"
+          assert old in s, 'blackKeyGeometry pattern not found'
           s=s.replace(old,new)
-          old2="function fitCamera(){$('cameraX').value=0;$('cameraRotX').value=-20;$('cameraRotY').value=0;$('cameraRotZ').value=0;const len=n('whiteLength');$('cameraY').value=Math.round(-len*1.55);if(activeCamera()===perspectiveCamera){const fov=deg(n('cameraFov')),aspect=Math.max(previewSize.width/previewSize.height,.01),vDist=(layout.length*.62)/Math.tan(fov/2),hFov=2*Math.atan(Math.tan(fov/2)*aspect),hDist=(layout.width*.54)/Math.tan(hFov/2);$('cameraZ').value=Math.round(Math.max(220,vDist,hDist))}else{$('cameraZ').value=Math.round(Math.max(260,len*2.3));$('cameraZoom').value=1}syncAllControls();updateCamera();if(camera===orthoCamera&&layout.box){const corners=[];for(const x of [layout.box.min.x,layout.box.max.x])for(const y of [layout.box.min.y,layout.box.max.y])for(const z of [layout.box.min.z,layout.box.max.z])corners.push(new THREE.Vector3(x,y,z));let max=0;corners.forEach(v=>{const p=v.clone().project(camera);max=Math.max(max,Math.abs(p.x),Math.abs(p.y))});if(max>0){$('cameraZoom').value=(.9/max).toFixed(3);syncAllControls();updateCamera()}}render()}"
-          new2="function fitCamera(){$('cameraX').value=0;$('cameraRotX').value=0;$('cameraRotY').value=0;$('cameraRotZ').value=0;const len=n('whiteLength');$('cameraY').value=Math.round(-len*1.35);$('cameraZ').value=Math.round(Math.max(260,len*2.1));$('cameraZoom').value=1;syncAllControls();updateCamera();if(!layout.box)return render();const corners=[];for(const x of [layout.box.min.x,layout.box.max.x])for(const y of [layout.box.min.y,layout.box.max.y])for(const z of [layout.box.min.z,layout.box.max.z])corners.push(new THREE.Vector3(x,y,z));if(camera===perspectiveCamera){for(let i=0;i<12;i++){updateCamera();let maxX=0,maxY=0;for(const v of corners){const q=v.clone().project(camera);maxX=Math.max(maxX,Math.abs(q.x));maxY=Math.max(maxY,Math.abs(q.y))}const overflow=Math.max(maxX/.88,maxY/.84);if(overflow<=1.001)break;$('cameraY').value=(n('cameraY')*overflow*1.04).toFixed(2);$('cameraZ').value=(n('cameraZ')*overflow*1.04).toFixed(2)}}else{updateCamera();let max=0;for(const v of corners){const q=v.clone().project(camera);max=Math.max(max,Math.abs(q.x)/.88,Math.abs(q.y)/.84)}if(max>0)$('cameraZoom').value=(n('cameraZoom')/max).toFixed(3)}syncAllControls();updateCamera();render()}"
-          assert old2 in s, 'fitCamera pattern not found'
+          old2="mesh=new THREE.Mesh(geo,keyMaterial($('blackColor').value,n('blackRoughness')))"
+          new2="mesh=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:new THREE.Color($('blackColor').value),roughness:n('blackRoughness'),metalness:.02,flatShading:true}))"
+          assert old2 in s, 'black material pattern not found'
           p.write_text(s.replace(old2,new2))
           PY
       - name: Bust browser cache
         run: |
           python - <<'PY'
           from pathlib import Path
-          p=Path('index.html'); s=p.read_text(); s=s.replace('v=20260828-3','v=20260828-4'); p.write_text(s)
+          p=Path('index.html'); s=p.read_text(); s=s.replace('v=20260828-5','v=20260828-6'); p.write_text(s)
           PY
       - name: Commit fix
         run: |
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add app.js index.html
-          git commit -m 'Fix camera centering and guarantee keyboard fit' || exit 0
+          git commit -m 'Make black key edges crisp with flat normals' || exit 0
           git push
