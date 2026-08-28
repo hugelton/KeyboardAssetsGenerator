@@ -7,11 +7,12 @@ permissions:
   contents: write
 jobs:
   patch:
-    if: github.actor != 'github-actions[bot]'
+    if: "${{ github.actor != 'github-actions[bot]' }}"
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Patch renderer
+        shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
@@ -42,8 +43,7 @@ function updateShadowCatcher(){
           s=s.replace("mainLight.shadow.radius=quality==='product'?4:2;", "mainLight.shadow.radius=quality==='product'?3:2;if(shadowCatcher){shadowCatcher.visible=b('shadows');shadowCatcher.material.opacity=quality==='product'?.24:quality==='studio'?.20:.14;}")
           p.write_text(s)
           h=Path('index.html')
-          hs=h.read_text().replace('20260828-10','20260828-11')
-          h.write_text(hs)
+          h.write_text(h.read_text().replace('20260828-10','20260828-11'))
           PY
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
