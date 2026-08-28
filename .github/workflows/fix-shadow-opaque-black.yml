@@ -1,0 +1,52 @@
+name: Fix shadows and black material
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-shadow-opaque-black.yml'
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch renderer
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('app.js')
+          s=p.read_text()
+          s=s.replace("const keyboardGroup=new THREE.Group();scene.add(keyboardGroup);\nlet keyRecords=[];", "const keyboardGroup=new THREE.Group();scene.add(keyboardGroup);\nlet shadowCatcher=null;\nlet keyRecords=[];")
+          old="return new THREE.MeshPhysicalMaterial({color:new THREE.Color(color),roughness:isBlack?Math.min(roughness,.38):Math.max(roughness,.42),metalness:0,clearcoat:quality==='product'?(isBlack?.72:.42):(isBlack?.52:.28),clearcoatRoughness:isBlack?.18:.34,ior:1.48,specularIntensity:isBlack?.8:.46,envMapIntensity:quality==='product'?1.45:1.05,wireframe})"
+          new="return new THREE.MeshPhysicalMaterial({color:new THREE.Color(color),roughness:isBlack?Math.max(.28,Math.min(roughness,.42)):Math.max(roughness,.42),metalness:0,clearcoat:quality==='product'?(isBlack?.42:.34):(isBlack?.30:.24),clearcoatRoughness:isBlack?.28:.36,ior:1.46,specularIntensity:isBlack?.62:.46,envMapIntensity:quality==='product'?1.15:.82,opacity:1,transparent:false,transmission:0,thickness:0,wireframe})"
+          if old not in s: raise SystemExit('material anchor not found')
+          s=s.replace(old,new)
+          anchor="layout={width:Math.max(size.x,1),length:Math.max(size.y,1),centerX:center.x,centerY:center.y,centerZ:center.z,box};updatePressedSelect();"
+          repl="layout={width:Math.max(size.x,1),length:Math.max(size.y,1),centerX:center.x,centerY:center.y,centerZ:center.z,box};updateShadowCatcher();updatePressedSelect();"
+          if anchor not in s: raise SystemExit('layout anchor not found')
+          s=s.replace(anchor,repl)
+          insert="""
+function updateShadowCatcher(){
+  if(shadowCatcher){scene.remove(shadowCatcher);shadowCatcher.geometry.dispose();shadowCatcher.material.dispose();shadowCatcher=null}
+  const pad=Math.max(30,n('whiteWidth')*.8),geo=new THREE.PlaneGeometry(layout.width+pad*2,layout.length+pad*2),mat=new THREE.ShadowMaterial({color:0x000000,opacity:.20,transparent:true,depthWrite:false});
+  shadowCatcher=new THREE.Mesh(geo,mat);shadowCatcher.position.set(layout.centerX,layout.centerY,-n('whiteThickness')-1.4);shadowCatcher.receiveShadow=true;shadowCatcher.renderOrder=-1;scene.add(shadowCatcher);
+  const span=Math.max(layout.width,layout.length)*.75+80;
+  mainLight.shadow.camera.left=-span;mainLight.shadow.camera.right=span;mainLight.shadow.camera.top=span;mainLight.shadow.camera.bottom=-span;mainLight.shadow.camera.near=.1;mainLight.shadow.camera.far=2500;mainLight.shadow.camera.updateProjectionMatrix();
+}
+"""
+          marker="function updatePressedSelect(){"
+          if marker not in s: raise SystemExit('pressed marker not found')
+          s=s.replace(marker,insert+"\n"+marker)
+          s=s.replace("r.mesh.material.envMapIntensity=quality==='asset'?0:quality==='product'?1.45:1.05;", "r.mesh.material.envMapIntensity=quality==='asset'?0:quality==='product'?1.15:.82;")
+          s=s.replace("mainLight.shadow.radius=quality==='product'?4:2;", "mainLight.shadow.radius=quality==='product'?3:2;if(shadowCatcher){shadowCatcher.visible=b('shadows');shadowCatcher.material.opacity=quality==='product'?.24:quality==='studio'?.20:.14;}")
+          p.write_text(s)
+          h=Path('index.html')
+          hs=h.read_text().replace('20260828-10','20260828-11')
+          h.write_text(hs)
+          PY
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add app.js index.html
+          git commit -m 'Fix contact shadows and opaque black keys'
+          git push
