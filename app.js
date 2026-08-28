@@ -102,17 +102,38 @@ function createWhiteKey(midi,x,visibleSet){
   return {midi,name:noteName(midi),kind:'white',pivot,mesh,x,width:w};
 }
 
+function blackKeyGeometry(w,len,h,gap){
+  const backW=Math.max(2,w-gap);
+  const frontW=Math.max(2,backW*0.86);
+  const halfBack=backW/2, halfFront=frontW/2;
+  const bottom=0;
+  const backTop=h;
+  const frontTop=h*0.72;
+  const shoulderY=-len*0.12;
+  const frontY=-len;
+
+  const p=[
+    [-halfBack,0,bottom],[ halfBack,0,bottom],[-halfFront,frontY,bottom],[ halfFront,frontY,bottom],
+    [-halfBack,shoulderY,backTop],[ halfBack,shoulderY,backTop],[-halfFront,frontY,frontTop],[ halfFront,frontY,frontTop]
+  ];
+  const faces=[
+    0,1,3, 0,3,2,
+    4,6,7, 4,7,5,
+    0,4,5, 0,5,1,
+    2,3,7, 2,7,6,
+    0,2,6, 0,6,4,
+    1,5,7, 1,7,3
+  ];
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(p.flat(),3));
+  geo.setIndex(faces);
+  geo.computeVertexNormals();
+  return geo;
+}
+
 function createBlackKey(midi,boundaryX){
   const w=n('blackWidth'), len=n('blackLength'), h=n('blackHeight'), gap=Math.min(n('keyGap'),w/6);
-  const shape=new THREE.Shape();
-  const x0=-w/2+gap/2,x1=w/2-gap/2,r=Math.min(n('frontRadius')*.7,w/6,4);
-  shape.moveTo(x0,0);shape.lineTo(x1,0);shape.lineTo(x1,-len+r);
-  if(r>0) shape.quadraticCurveTo(x1,-len,x1-r,-len); else shape.lineTo(x1,-len);
-  shape.lineTo(x0+r,-len);
-  if(r>0) shape.quadraticCurveTo(x0,-len,x0,-len+r); else shape.lineTo(x0,-len);
-  shape.closePath();
-  const geo=new THREE.ExtrudeGeometry(shape,{depth:h,bevelEnabled:true,bevelSegments:2,steps:1,bevelSize:Math.min(1.5,h*.15),bevelThickness:Math.min(1.5,h*.15)});
-  geo.computeVertexNormals();
+  const geo=blackKeyGeometry(w,len,h,gap);
   const mesh=new THREE.Mesh(geo,keyMaterial($('blackColor').value,n('blackRoughness')));
   mesh.position.z=0.6;mesh.castShadow=true;mesh.receiveShadow=true;mesh.userData.midi=midi;
   const pivot=new THREE.Group();pivot.position.x=boundaryX;pivot.position.z=0.5;pivot.add(mesh);pivot.userData.midi=midi;pivot.userData.kind='black';
