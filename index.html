@@ -45,9 +45,9 @@
             <label>White length<input id="whiteLength" type="number" min="20" max="600" step="1" value="188" /></label>
             <label>White thickness<input id="whiteThickness" type="number" min="1" max="50" step="1" value="10" /></label>
             <label>Front radius<input id="frontRadius" type="number" min="0" max="12" step="0.5" value="3" /></label>
-            <label>Black width<input id="blackWidth" type="number" min="4" max="120" step="1" value="29" /></label>
-            <label>Black length<input id="blackLength" type="number" min="10" max="400" step="1" value="105" /></label>
-            <label>Black height<input id="blackHeight" type="number" min="2" max="80" step="1" value="15" /></label>
+            <label>Black width<input id="blackWidth" type="number" min="4" max="120" step="1" value="23" /></label>
+            <label>Black length<input id="blackLength" type="number" min="10" max="400" step="1" value="95" /></label>
+            <label>Black height<input id="blackHeight" type="number" min="2" max="80" step="1" value="12" /></label>
             <label>Key gap<input id="keyGap" type="number" min="0" max="5" step="0.1" value="3" /></label>
           </div>
           <label>Pressed angle <span id="pressAngleOut">6°</span><input id="pressAngle" type="range" min="0" max="18" step="0.25" value="6" /></label>
@@ -59,7 +59,7 @@
             <label>White key<input id="whiteColor" type="color" value="#eeeeee" /></label>
             <label>Black key<input id="blackColor" type="color" value="#181818" /></label>
             <label>White roughness<input id="whiteRoughness" type="number" min="0" max="1" step="0.05" value="0.72" /></label>
-            <label>Black roughness<input id="blackRoughness" type="number" min="0" max="1" step="0.05" value="0.5" /></label>
+            <label>Black roughness<input id="blackRoughness" type="number" min="0" max="1" step="0.05" value="0.32" /></label>
           </div>
         </details>
 
@@ -111,26 +111,15 @@
       <section class="preview-column">
         <div class="panel preview-panel">
           <div class="preview-toolbar">
-            <div>
-              <strong>Preview</strong>
-              <span id="rangeInfo">C2–C5</span>
-            </div>
-            <div class="preview-tools">
-              <label>Pressed preview<select id="pressedNote"><option value="">None</option></select></label>
-            </div>
+            <div><strong>Preview</strong><span id="rangeInfo">C2–C5</span></div>
+            <div class="preview-tools"><label>Pressed preview<select id="pressedNote"><option value="">None</option></select></label></div>
           </div>
           <div id="viewport" class="viewport"></div>
-          <div class="statusbar">
-            <span id="keyCount">0 keys</span>
-            <span id="renderSize">814 × 212</span>
-          </div>
+          <div class="statusbar"><span id="keyCount">0 keys</span><span id="renderSize">814 × 212</span></div>
         </div>
 
         <div class="panel export-panel">
-          <div>
-            <strong>Export</strong>
-            <p>Same camera, lighting and material settings are used for every generated asset.</p>
-          </div>
+          <div><strong>Export</strong><p>Same camera, lighting and material settings are used for every generated asset.</p></div>
           <div class="export-actions">
             <button id="exportKeyboard" class="primary">Keyboard PNG</button>
             <button id="exportPressed" class="primary">Keyboard + pressed PNG</button>
